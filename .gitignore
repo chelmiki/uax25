@@ -1,0 +1,6 @@
+/target
+
+# editor backups/autosaves
+*~
+\#*\#
+.\#*

@@ -1,0 +1,10 @@
+[package]
+name = "uax25"
+version = "0.1.0"
+edition = "2024"
+license = "LGPL-3.0-or-later"
+
+[dependencies]
+eyre = "0.6.12"
+log = "0.4.29"
+serialport = "4"
