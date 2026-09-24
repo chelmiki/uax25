@@ -1,11 +1,11 @@
 use crate::{
+    Address, CommandResponse, Digipeater, Frame,
     model::{
         FrameRejectionInfo, FrameType, InformationFrame, SupervisoryFrame, SupervisoryType,
         UnnumberedFrame, UnnumberedType,
     },
-    Address, CommandResponse, Digipeater, Frame,
 };
-use eyre::{bail, Result, WrapErr};
+use eyre::{Result, WrapErr, bail};
 
 pub struct AddressFieldWire {
     pub destination: Address,

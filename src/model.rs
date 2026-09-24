@@ -19,6 +19,34 @@ impl fmt::Display for Address {
     }
 }
 
+impl std::convert::TryFrom<&str> for Address {
+    type Error = eyre::Report;
+    fn try_from(call: &str) -> eyre::Result<Address> {
+        let parts: Vec<_> = call.split('-').collect();
+        if parts.len() != 2 {
+            eyre::bail!("Invalid Address: {:?}", call);
+        }
+        let callsign = parts[0].as_bytes();
+        if callsign.is_empty() || callsign.len() > 6 {
+            eyre::bail!("Invalid callsign length: {:?}", parts[0]);
+        }
+        let mut call_bytes = [b' '; 6];
+        call_bytes[..callsign.len()].copy_from_slice(callsign);
+
+        let ssid: u8 = parts[1]
+            .parse()
+            .map_err(|_| eyre::eyre!("Invalid SSID: {:?}", parts[1]))?;
+        if ssid > 15 {
+            eyre::bail!("SSID out of range (0-15): {}", ssid);
+        }
+
+        Ok(Address {
+            call: call_bytes,
+            ssid,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct Digipeater {
     pub address: Address,

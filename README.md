@@ -16,25 +16,53 @@ sudo rfcomm bind 0 38:D2:00:XX:XX:XX 1
 
 Listen for AX.25 packets and print the source, repeaters and destination addresses:
 ```
-./target/debug/uax25 serial /dev/rfcomm0 9600
+❯ RUST_LOG=debug ./target/debug/uax25 
+[2026-09-24T16:45:09Z DEBUG uax25::port] Starting TNC connection /dev/rfcomm0 at 9600 bauds
+[2026-09-24T16:45:09Z DEBUG uax25] Created port: vhf (EI4JKB-5): APRS VHF Port 144.800 Mhz
+[2026-09-24T16:45:09Z DEBUG mio_serial] opening serial port in synchronous blocking mode
+[2026-09-24T16:45:09Z DEBUG mio_serial] setting O_NONBLOCK for /dev/rfcomm0
 Waiting for data...
-Received KISS frame. Cmd: Data, Port 0
-N0CALL-3 --> N0DIGI1-3:true --> N0DIGI2-3:true --> WIDE2-0:true --> APMI06-0: 
-payload: T#133,140,132,000,051,255,00001111
-Received KISS frame. Cmd: Data, Port 0
-N0CALL2-0 --> N0DIGI2-3:true --> WIDE1-0:true --> N0CALL3-0: 
-payload: '~I[l -/>
-Received KISS frame. Cmd: Data, Port 0
-N0CALL4-1 --> N0DIGI3-3:true --> WIDE2-0:true --> N0DIGI1-3:true --> N0DIGI2-3:true --> N0DIGI4-0:true --> APRS-0:false --> APU25N-0: 
-payload: @201842zXXXX.XXN/XXXXX.XXW_068/000g000t081r000p000P000h40b09961WX <redacted location>
-Received KISS frame. Cmd: Data, Port 0
-N0CALL5-7 --> N0DIGI5-0:true --> N0DIGI1-3:true --> N0DIGI2-3:true --> WIDE2-0:true --> APALHA-0: 
-payload: !XXXX.XXN/XXXXX.XXW!000/000/A=000674sotadata.org.uk
+[2026-09-24T16:46:03Z DEBUG uax25::port] Read 76 bytes
+[2026-09-24T16:46:03Z DEBUG uax25::port] Detected KISS frame
+[2026-09-24T16:46:03Z DEBUG uax25::parser] It is an UFrame
+[2026-09-24T16:46:03Z DEBUG uax25::port] Succeessfully parsed AX.25 frame
+EI4JKB-7 --> EDXXXX-3:true --> WIDE1-0:true --> WIDE2-1:false --> APN000-0: 
+payload: =XXXX.XXN/XXXXX.XXW(360/000/A=000249
 ```
 
 ## What I would like this package to be
 
 I would like next to create an AX.25 daemon `uax25d` that implements the AX.25 state machine and supports connection-oriented AX.25 sessions.
+### Architecture
+```
+        Radio A                Radio B
+       ┌───────┐              ┌───────┐
+       │  TNC  │              │  TNC  │
+       └───┬───┘              └───┬───┘
+           │ KISS/serial          │ KISS/serial
+           ▼                      ▼
+     ┌───────────┐          ┌───────────┐
+     │  Ax25Port │          │  Ax25Port │
+     └─────┬─────┘          └─────┬─────┘
+           │                      │
+           └──────────┬───────────┘
+                      ▼
+              ┌───────────────────┐
+              │    Dispatcher     │
+              │     (router)      │
+              └─────────┬─────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+  ┌───────────┐   ┌───────────┐    ┌───────────┐
+  │  Ax25Conn │   │  Ax25Conn │    │  Ax25Conn │ 
+  └─────┬─────┘   └─────┬─────┘    └─────┬─────┘ 
+        │               │                │
+        ▼               ▼                ▼
+  ┌───────────┐   ┌───────────┐    ┌───────────┐
+  │    BBS    │   │ uax25call │    │   APRS    │
+  └───────────┘   └───────────┘    └───────────┘
+```
 
 ### Radio communication
 
