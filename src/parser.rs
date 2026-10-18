@@ -175,7 +175,9 @@ pub fn parse_control_field(bytes: &[u8]) -> Result<(ControlField, &[u8])> {
                 0b0000_1100 => UnnumberedOpcode::DM,
                 0b0000_0000 => UnnumberedOpcode::UI,
                 0b1000_0100 => UnnumberedOpcode::FRMR,
-                _ => bail!("unknown unnumbered frame"),
+                _ => {
+                    bail!("unknown unnumbered frame");
+                }
             };
             ControlField::Unnumbered { poll_final, kind }
         }

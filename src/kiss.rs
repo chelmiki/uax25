@@ -36,7 +36,9 @@ impl TryFrom<u8> for KissTncCmd {
             5 => Ok(KissTncCmd::FullDuplex),
             6 => Ok(KissTncCmd::SetHardware),
             7 => Ok(KissTncCmd::Return),
-            _ => bail!("Invalid KISS TNC Command"),
+            _ => {
+                bail!("Invalid KISS TNC Command");
+            }
         }
     }
 }

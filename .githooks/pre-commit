@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "pre-commit: cargo fmt --check"
+if ! cargo fmt --all -- --check; then
+    echo
+    echo "rustfmt found formatting issues. Run 'cargo fmt --all' to fix, then re-stage and commit again." >&2
+    exit 1
+fi
+
+echo "pre-commit: cargo clippy"
+if ! cargo clippy --all-targets -- -D warnings; then
+    echo
+    echo "clippy found issues (see above)." >&2
+    exit 1
+fi
+
+echo "pre-commit: cargo nextest run"
+if ! cargo nextest run; then
+    echo
+    echo "tests failed (see above)." >&2
+    exit 1
+fi
+
+echo "pre-commit: ok"
