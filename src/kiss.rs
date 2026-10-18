@@ -1,7 +1,7 @@
-use eyre::{bail, Result};
+use eyre::{Result, bail};
 
-const FEND: u8 = 0xC0;  // Frame End
-const FESC: u8 = 0xDB;  // Frame Escape
+const FEND: u8 = 0xC0; // Frame End
+const FESC: u8 = 0xDB; // Frame Escape
 const TFEND: u8 = 0xDC; // Transposed Frame End
 const TFESC: u8 = 0xDD; // Transposed Frame Escape
 
