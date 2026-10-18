@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Address {
     pub call: [u8; 6], // Up to 6 ascii chars (using space if less than 6)
     pub ssid: u8,
@@ -47,19 +47,19 @@ impl std::convert::TryFrom<&str> for Address {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Digipeater {
     pub address: Address,
     pub has_repeated: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum CommandResponse {
     Command,
     Response,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct InformationFrame {
     pub ns: u8,
     pub nr: u8,
@@ -67,25 +67,25 @@ pub struct InformationFrame {
     pub payload: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SupervisoryFrame {
     pub kind: SupervisoryType,
     pub nr: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct UnnumberedFrame {
     pub kind: UnnumberedType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum FrameType {
     Information(InformationFrame),
     Supervisory(SupervisoryFrame),
     Unnumbered(UnnumberedFrame),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum SupervisoryType {
     RR,
     RNR,
@@ -93,7 +93,7 @@ pub enum SupervisoryType {
     SREJ,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum UnnumberedType {
     SABM,
     DISC,
@@ -103,7 +103,7 @@ pub enum UnnumberedType {
     FRMR(FrameRejectionInfo),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct FrameRejectionInfo {
     pub vs: u8,
     pub vr: u8,
@@ -114,7 +114,7 @@ pub struct FrameRejectionInfo {
     pub y: bool,
     pub z: bool,
 }
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Frame {
     pub source: Address,
     pub destination: Address,
