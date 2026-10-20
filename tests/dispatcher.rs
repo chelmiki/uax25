@@ -1,7 +1,7 @@
 use tokio::sync::{mpsc, oneshot};
 use uax25::SessionEvent;
 use uax25::dispatcher::{Ax25Dispatcher, DispatcherCommand, SessionId};
-use uax25::dispatcher::{DispatcherError, LocalAddress, PortId, SocketType};
+use uax25::dispatcher::{DispatcherError, LocalAddress, PortId, PortStatus, SocketType};
 use uax25::model::{FrameType, UnnumberedFrame, UnnumberedType};
 use uax25::{Address, CommandResponse, Frame};
 
@@ -82,6 +82,13 @@ impl TestDispatcher {
     async fn frame_in(&self, frame: Frame, port_id: PortId) {
         self.to_dispatcher
             .send(DispatcherCommand::FrameIn { frame, port_id })
+            .await
+            .unwrap();
+    }
+
+    async fn set_port_status(&self, port_id: PortId, status: PortStatus) {
+        self.to_dispatcher
+            .send(DispatcherCommand::PortStatus { port_id, status })
             .await
             .unwrap();
     }
@@ -255,6 +262,9 @@ async fn test_frame_out_delivers_to_port() {
     dispatcher
         .register_port(port_id.clone(), address.clone(), to_port)
         .await;
+    dispatcher
+        .set_port_status(port_id.clone(), PortStatus::Up)
+        .await;
 
     let session_id = dispatcher
         .register_session(
@@ -330,7 +340,7 @@ async fn test_frame_out_session_not_found() {
 }
 
 #[tokio::test]
-async fn test_frame_out_port_down() {
+async fn test_frame_out_port_channel_closed() {
     let dispatcher = TestDispatcher::spawn();
     let (to_port, port_rx) = mpsc::channel(10);
     let (to_session, _session_rx) = mpsc::channel(10);
@@ -339,6 +349,51 @@ async fn test_frame_out_port_down() {
     let remote: Address = "N0CALL-1".try_into().unwrap();
     let port_id = PortId::new("test_port".to_string());
 
+    dispatcher
+        .register_port(port_id.clone(), address.clone(), to_port)
+        .await;
+    dispatcher
+        .set_port_status(port_id.clone(), PortStatus::Up)
+        .await;
+
+    let session_id = dispatcher
+        .register_session(
+            LocalAddress::Some(address.clone()),
+            Some(port_id.clone()),
+            SocketType::SeqPacket,
+            to_session,
+        )
+        .await
+        .unwrap();
+
+    dispatcher
+        .set_remote(session_id, remote.clone())
+        .await
+        .unwrap();
+
+    // Simulate the port task crashing without deregistering or reporting
+    // its own status: the port entry is still in the table and still
+    // marked Up, but its channel is now closed.
+    drop(port_rx);
+
+    let frame = ui_frame(address, remote);
+    let err = dispatcher.frame_out(frame, session_id).await.unwrap_err();
+    assert_eq!(err, DispatcherError::PortDown(port_id));
+}
+
+#[tokio::test]
+async fn test_frame_out_rejected_while_port_status_down() {
+    let dispatcher = TestDispatcher::spawn();
+    let (to_port, _port_rx) = mpsc::channel(10);
+    let (to_session, _session_rx) = mpsc::channel(10);
+
+    let address: Address = "EI4JKB-4".try_into().unwrap();
+    let remote: Address = "N0CALL-1".try_into().unwrap();
+    let port_id = PortId::new("test_port".to_string());
+
+    // A freshly registered port defaults to Down, even though its
+    // channel is perfectly healthy. The port will be set to UP by the
+    // KISS Link actor once the KISS link becomes healthy.
     dispatcher
         .register_port(port_id.clone(), address.clone(), to_port)
         .await;
@@ -358,13 +413,101 @@ async fn test_frame_out_port_down() {
         .await
         .unwrap();
 
-    // Simulate the port task crashing without deregistering: the port
-    // entry is still in the table, but its channel is now closed.
-    drop(port_rx);
+    let frame = ui_frame(address.clone(), remote.clone());
+    let err = dispatcher.frame_out(frame, session_id).await.unwrap_err();
+    assert_eq!(err, DispatcherError::PortDown(port_id.clone()));
+
+    // Once the port reports itself Up, the same session can send.
+    dispatcher.set_port_status(port_id, PortStatus::Up).await;
 
     let frame = ui_frame(address, remote);
-    let err = dispatcher.frame_out(frame, session_id).await.unwrap_err();
-    assert_eq!(err, DispatcherError::PortDown(port_id));
+    dispatcher.frame_out(frame, session_id).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_frame_out_port_status_recovers() {
+    let dispatcher = TestDispatcher::spawn();
+    let (to_port, _port_rx) = mpsc::channel(10);
+    let (to_session, _session_rx) = mpsc::channel(10);
+
+    let address: Address = "EI4JKB-4".try_into().unwrap();
+    let remote: Address = "N0CALL-1".try_into().unwrap();
+    let port_id = PortId::new("test_port".to_string());
+
+    dispatcher
+        .register_port(port_id.clone(), address.clone(), to_port)
+        .await;
+    dispatcher
+        .set_port_status(port_id.clone(), PortStatus::Up)
+        .await;
+
+    let session_id = dispatcher
+        .register_session(
+            LocalAddress::Some(address.clone()),
+            Some(port_id.clone()),
+            SocketType::SeqPacket,
+            to_session,
+        )
+        .await
+        .unwrap();
+
+    dispatcher
+        .set_remote(session_id, remote.clone())
+        .await
+        .unwrap();
+
+    // Healthy to start with.
+    dispatcher
+        .frame_out(ui_frame(address.clone(), remote.clone()), session_id)
+        .await
+        .unwrap();
+
+    // The link goes down (e.g. the TNC stops responding)
+    dispatcher
+        .set_port_status(port_id.clone(), PortStatus::Down)
+        .await;
+    let err = dispatcher
+        .frame_out(ui_frame(address.clone(), remote.clone()), session_id)
+        .await
+        .unwrap_err();
+    assert_eq!(err, DispatcherError::PortDown(port_id.clone()));
+
+    // ...and recovers, without the session ever being torn down.
+    dispatcher.set_port_status(port_id, PortStatus::Up).await;
+    dispatcher
+        .frame_out(ui_frame(address, remote), session_id)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_port_status_for_unknown_port_is_noop() {
+    let dispatcher = TestDispatcher::spawn();
+
+    // Should not panic even though this port was never registered.
+    dispatcher
+        .set_port_status(PortId::new("ghost_port".to_string()), PortStatus::Up)
+        .await;
+
+    // A round-trip afterward proves the dispatcher is still alive and
+    // responsive.
+    let (to_port, _port_rx) = mpsc::channel(10);
+    let (to_session, _session_rx) = mpsc::channel(10);
+    let address: Address = "EI4JKB-4".try_into().unwrap();
+    let port_id = PortId::new("test_port".to_string());
+
+    dispatcher
+        .register_port(port_id.clone(), address.clone(), to_port)
+        .await;
+    dispatcher
+        .register_session(
+            LocalAddress::Some(address),
+            Some(port_id),
+            SocketType::Datagram,
+            to_session,
+        )
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -419,6 +562,9 @@ async fn test_frame_out_port_busy() {
 
     dispatcher
         .register_port(port_id.clone(), address.clone(), to_port)
+        .await;
+    dispatcher
+        .set_port_status(port_id.clone(), PortStatus::Up)
         .await;
 
     let session_id = dispatcher

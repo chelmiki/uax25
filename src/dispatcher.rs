@@ -104,8 +104,24 @@ pub enum SocketType {
     Datagram,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum PortStatus {
+    Up,
+    Down,
+}
+
+impl fmt::Display for PortStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PortStatus::Up => write!(f, "UP"),
+            PortStatus::Down => write!(f, "DOWN"),
+        }
+    }
+}
+
 struct PortEntry {
     address: Address,
+    status: PortStatus,
     port_tx: mpsc::Sender<Frame>,
 }
 type PortTable = HashMap<PortId, PortEntry>;
@@ -200,6 +216,10 @@ pub enum DispatcherCommand {
     DeregisterPort {
         port_id: PortId,
     },
+    PortStatus {
+        port_id: PortId,
+        status: PortStatus,
+    },
     // Session lifecycle
     RegisterSession {
         local: LocalAddress,
@@ -284,6 +304,9 @@ impl Ax25Dispatcher {
                     address,
                 } => self.register_port(port_id, port_tx, address),
                 DispatcherCommand::DeregisterPort { port_id } => self.deregister_port(port_id),
+                DispatcherCommand::PortStatus { port_id, status } => {
+                    self.update_port_status(port_id, status)
+                }
             }
         }
         log::info!("Dispatcher shutting down: no senders remain");
@@ -478,48 +501,52 @@ impl Ax25Dispatcher {
         session_id: SessionId,
         resp: oneshot::Sender<Result<(), Error>>,
     ) {
-        let msg = if let Some(session) = self.session_table.get(&session_id) {
-            if session.remote == RemoteAddress::None {
-                log::warn!(
-                    "FrameOut rejected for session {}: not connected",
-                    session_id
-                );
-                Err(DispatcherError::NotConnected)
-            } else if let Some(entry) = self.port_table.get(&session.port_id) {
-                log::trace!(
-                    "Sending frame for session {} with src: {} dst: {} via {} port",
-                    session_id,
-                    frame.source,
-                    frame.destination,
-                    session.port_id,
-                );
-                match entry.port_tx.try_send(frame) {
-                    Ok(()) => Ok(()),
-                    Err(mpsc::error::TrySendError::Full(_)) => {
-                        let err = DispatcherError::PortBusy(session.port_id.clone());
-                        log::warn!("FrameOut failed for session {}: {}", session_id, err);
-                        Err(err)
-                    }
-                    Err(mpsc::error::TrySendError::Closed(_)) => {
-                        let err = DispatcherError::PortDown(session.port_id.clone());
-                        log::warn!("FrameOut failed for session {}: {}", session_id, err);
-                        Err(err)
-                    }
-                }
-            } else {
-                let err = DispatcherError::PortNotFound(session.port_id.clone());
-                log::warn!("FrameOut rejected for session {}: {}", session_id, err);
-                Err(err)
-            }
-        } else {
-            let err = DispatcherError::SessionNotFound(session_id);
-            log::warn!("FrameOut rejected: {}", err);
-            Err(err)
-        };
+        let msg = self.try_send_frame_to_port(frame, session_id);
+
+        if let Err(err) = &msg {
+            log::warn!("FrameOut rejected for session {}: {}", session_id, err);
+        }
 
         if resp.send(msg).is_err() {
             self.drop_unanswered(Some(session_id));
         }
+    }
+
+    fn try_send_frame_to_port(&self, frame: Frame, session_id: SessionId) -> Result<(), Error> {
+        let session = self
+            .session_table
+            .get(&session_id)
+            .ok_or(DispatcherError::SessionNotFound(session_id))?;
+
+        if session.remote == RemoteAddress::None {
+            return Err(DispatcherError::NotConnected);
+        }
+
+        let entry = self
+            .port_table
+            .get(&session.port_id)
+            .ok_or_else(|| DispatcherError::PortNotFound(session.port_id.clone()))?;
+
+        if entry.status == PortStatus::Down {
+            return Err(DispatcherError::PortDown(session.port_id.clone()));
+        }
+
+        log::trace!(
+            "Sending frame for session {} with src: {} dst: {} via {} port",
+            session_id,
+            frame.source,
+            frame.destination,
+            session.port_id,
+        );
+
+        entry.port_tx.try_send(frame).map_err(|err| match err {
+            mpsc::error::TrySendError::Full(_) => {
+                DispatcherError::PortBusy(session.port_id.clone())
+            }
+            mpsc::error::TrySendError::Closed(_) => {
+                DispatcherError::PortDown(session.port_id.clone())
+            }
+        })
     }
 
     fn send_frame_to_socket(&mut self, frame: Frame, port_id: PortId) {
@@ -568,13 +595,38 @@ impl Ax25Dispatcher {
 
     fn register_port(&mut self, port_id: PortId, port_tx: mpsc::Sender<Frame>, address: Address) {
         log::info!("Port {} registered with address {}", port_id, address);
-        self.port_table
-            .insert(port_id, PortEntry { address, port_tx });
+        self.port_table.insert(
+            port_id,
+            PortEntry {
+                address,
+                port_tx,
+                status: PortStatus::Down,
+            },
+        );
     }
 
     fn deregister_port(&mut self, port_id: PortId) {
         if self.port_table.remove(&port_id).is_some() {
             log::info!("Port {} deregistered", port_id);
+        }
+    }
+
+    fn update_port_status(&mut self, port_id: PortId, status: PortStatus) {
+        match self.port_table.get_mut(&port_id) {
+            Some(entry) if entry.status == status => {}
+            Some(entry) => {
+                log::info!(
+                    "Port {} status change: {} -> {}",
+                    port_id,
+                    entry.status,
+                    status
+                );
+                entry.status = status;
+            }
+            None => log::warn!(
+                "Port {} is not registered in the dispatcher, cannot update its status",
+                port_id
+            ),
         }
     }
 }
