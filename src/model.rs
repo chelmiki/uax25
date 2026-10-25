@@ -87,20 +87,20 @@ pub enum FrameType {
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum SupervisoryType {
-    RR,
-    RNR,
-    REJ,
-    SREJ,
+    Rr,
+    Rnr,
+    Rej,
+    Srej,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum UnnumberedType {
-    SABM,
-    DISC,
-    UA,
-    DM,
-    UI { pid: u8, payload: Vec<u8> },
-    FRMR(FrameRejectionInfo),
+    Sabm,
+    Disc,
+    Ua,
+    Dm,
+    Ui { pid: u8, payload: Vec<u8> },
+    Frmr(FrameRejectionInfo),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

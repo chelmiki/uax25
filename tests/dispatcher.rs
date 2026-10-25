@@ -116,7 +116,7 @@ fn ui_frame(source: Address, destination: Address) -> Frame {
         command_response: CommandResponse::Command,
         poll_final: true,
         frame: FrameType::Unnumbered(UnnumberedFrame {
-            kind: UnnumberedType::UI {
+            kind: UnnumberedType::Ui {
                 pid: 1,
                 payload: "test".into(),
             },
@@ -163,7 +163,7 @@ async fn test_inbound_frame_routing_precedence() {
         command_response: CommandResponse::Command,
         poll_final: true,
         frame: FrameType::Unnumbered(UnnumberedFrame {
-            kind: UnnumberedType::UI {
+            kind: UnnumberedType::Ui {
                 pid: 1,
                 payload: "test".into(),
             },
@@ -234,7 +234,7 @@ async fn test_inbound_frame_routing_precedence() {
         command_response: CommandResponse::Command,
         poll_final: true,
         frame: FrameType::Unnumbered(UnnumberedFrame {
-            kind: UnnumberedType::UI {
+            kind: UnnumberedType::Ui {
                 pid: 1,
                 payload: "test".into(),
             },

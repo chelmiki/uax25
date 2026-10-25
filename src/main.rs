@@ -12,7 +12,7 @@ fn print_frame(frame: Frame) {
     println!("{}: ", frame.destination,);
     match frame.frame {
         FrameType::Unnumbered(uframe) => {
-            if let UnnumberedType::UI { pid: _, payload } = uframe.kind {
+            if let UnnumberedType::Ui { pid: _, payload } = uframe.kind {
                 println!(
                     "payload: {}",
                     payload.iter().map(|&b| b as char).collect::<String>()
