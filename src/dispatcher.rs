@@ -122,6 +122,8 @@ impl fmt::Display for PortStatus {
 struct PortEntry {
     address: Address,
     status: PortStatus,
+    _paclen: u16,
+    _window: u8,
     port_tx: mpsc::Sender<Frame>,
 }
 type PortTable = HashMap<PortId, PortEntry>;
@@ -211,6 +213,8 @@ pub enum DispatcherCommand {
     RegisterPort {
         port_id: PortId,
         address: Address,
+        paclen: u16,
+        window: u8,
         port_tx: mpsc::Sender<Frame>,
     },
     DeregisterPort {
@@ -302,7 +306,9 @@ impl Ax25Dispatcher {
                     port_id,
                     port_tx,
                     address,
-                } => self.register_port(port_id, port_tx, address),
+                    paclen,
+                    window,
+                } => self.register_port(port_id, port_tx, address, paclen, window),
                 DispatcherCommand::DeregisterPort { port_id } => self.deregister_port(port_id),
                 DispatcherCommand::PortStatus { port_id, status } => {
                     self.update_port_status(port_id, status)
@@ -593,13 +599,22 @@ impl Ax25Dispatcher {
         }
     }
 
-    fn register_port(&mut self, port_id: PortId, port_tx: mpsc::Sender<Frame>, address: Address) {
+    fn register_port(
+        &mut self,
+        port_id: PortId,
+        port_tx: mpsc::Sender<Frame>,
+        address: Address,
+        paclen: u16,
+        window: u8,
+    ) {
         log::info!("Port {} registered with address {}", port_id, address);
         self.port_table.insert(
             port_id,
             PortEntry {
                 address,
                 port_tx,
+                _paclen: paclen,
+                _window: window,
                 status: PortStatus::Down,
             },
         );
@@ -773,8 +788,8 @@ mod tests {
         // the AmbiguousPort case below.
         let (vhf_tx, _) = mpsc::channel(10);
         let (uhf_tx, _) = mpsc::channel(10);
-        dispatcher.register_port(vhf.clone(), vhf_tx, addr.clone());
-        dispatcher.register_port(uhf.clone(), uhf_tx, addr.clone());
+        dispatcher.register_port(vhf.clone(), vhf_tx, addr.clone(), 256, 2);
+        dispatcher.register_port(uhf.clone(), uhf_tx, addr.clone(), 256, 2);
 
         // Any local + explicit, existing port: no address check at all.
         assert_eq!(

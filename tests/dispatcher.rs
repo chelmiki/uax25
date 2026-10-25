@@ -22,6 +22,8 @@ impl TestDispatcher {
             .send(DispatcherCommand::RegisterPort {
                 port_id,
                 address,
+                paclen: 256,
+                window: 2,
                 port_tx,
             })
             .await
