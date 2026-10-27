@@ -5,6 +5,6 @@ pub mod parser;
 pub mod port;
 pub mod session;
 pub use kiss::{KissDecoder, KissEncoder, KissTncCmd};
-pub use model::{Address, CommandResponse, Digipeater, Frame};
+pub use model::{Address, CommandResponse, Digipeater, Frame, PortId, SocketType};
 pub use port::{Ax25Port, PortConfig};
 pub use session::SessionEvent;

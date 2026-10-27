@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use eyre::Result;
 use uax25::{
-    Address, Ax25Port, Frame, PortConfig, SessionEvent,
-    dispatcher::{Ax25Dispatcher, DispatcherCommand, LocalAddress, PortId, SocketType},
+    Address, Ax25Port, Frame, PortConfig, PortId, SessionEvent, SocketType,
+    dispatcher::{Ax25Dispatcher, DispatcherCommand, LocalAddress},
     model::{CommandResponse, FrameType, UnnumberedFrame, UnnumberedType},
 };
 

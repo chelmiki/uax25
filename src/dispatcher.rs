@@ -2,22 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{Address, Frame, SessionEvent};
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct PortId(String);
-
-impl PortId {
-    pub fn new(port_id: String) -> Self {
-        Self(port_id)
-    }
-}
-
-impl fmt::Display for PortId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+use crate::{Address, Frame, PortId, SessionEvent, SocketType};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct SessionId(u32);
@@ -96,12 +81,6 @@ impl fmt::Display for RemoteAddress {
             RemoteAddress::None => write!(f, "none"),
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum SocketType {
-    SeqPacket,
-    Datagram,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

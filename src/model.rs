@@ -47,6 +47,27 @@ impl std::convert::TryFrom<&str> for Address {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PortId(String);
+
+impl PortId {
+    pub fn new(port_id: String) -> Self {
+        Self(port_id)
+    }
+}
+
+impl fmt::Display for PortId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SocketType {
+    SeqPacket,
+    Datagram,
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Digipeater {
     pub address: Address,

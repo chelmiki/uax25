@@ -1,8 +1,8 @@
 use tokio::sync::{mpsc, oneshot};
 use uax25::SessionEvent;
 use uax25::dispatcher::{Ax25Dispatcher, DispatcherCommand, SessionId};
-use uax25::dispatcher::{DispatcherError, LocalAddress, PortId, PortStatus, SocketType};
-use uax25::model::{FrameType, UnnumberedFrame, UnnumberedType};
+use uax25::dispatcher::{DispatcherError, LocalAddress, PortStatus};
+use uax25::model::{FrameType, PortId, SocketType, UnnumberedFrame, UnnumberedType};
 use uax25::{Address, CommandResponse, Frame};
 
 struct TestDispatcher {

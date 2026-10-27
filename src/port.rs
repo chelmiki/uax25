@@ -24,8 +24,8 @@
 //! direwolf EI4JKB-2 9600 255   2      tcp://127.0.0.1:8001 0 Direwolf Software TNC
 //! ```
 use crate::{
-    Address, Frame, KissDecoder, KissEncoder, KissTncCmd,
-    dispatcher::{DispatcherCommand, PortId, PortStatus},
+    Address, Frame, KissDecoder, KissEncoder, KissTncCmd, PortId,
+    dispatcher::{DispatcherCommand, PortStatus},
     parser::{encode_frame, parse_frame},
 };
 use std::{fmt, time::Duration};
